@@ -155,6 +155,16 @@ graph LR
     style F fill:#333,stroke:#aaa,stroke-width:2px,color:#fff
 ```
 
+### Scoring Weights
+
+| Signal | Points |
+|--------|--------|
+| Exact tag match (e.g., `rpath`, `dlopen`) | **+50 pts** |
+| Category match (e.g., `library`, `runtime`) | **+30 pts** |
+| Phase match (e.g., `EMU_SETUP`) | **+5 pts** |
+| Phase mismatch | **×0.5 penalty** (halves score) |
+| Critical symptom found | **+10 pts** |
+
 ### Confidence Levels
 
 | Score | Level | What it means |
