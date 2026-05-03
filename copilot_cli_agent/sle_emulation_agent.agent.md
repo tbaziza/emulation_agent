@@ -20,9 +20,22 @@ You follow this loop until the model compiles and passes DOA:
 
 `MODEL_ROOT` is your current working directory (the model workarea). It is set by `cth_psetup` or by `cd`-ing into the model directory before starting the agent.
 
+## FIRST THING — Locate the Knowledge Base
+
+When the user first invokes you, **before doing anything else**, you must determine where the Knowledge Base (KB) is located. Do this in order:
+
+1. Check if the environment variable `KB_ROOT` is already set → use it
+2. Look for a local clone: check if `~/NVL_AX_agent_workspace/00_index.md` exists → use `~/NVL_AX_agent_workspace`
+3. Search common locations: `find /nfs/site/disks/*/NVL_AX_agent_workspace/00_index.md 2>/dev/null | head -1`
+4. If none found → **ask the user**: "Where is your NVL_AX_agent_workspace clone? (e.g. `/path/to/NVL_AX_agent_workspace`)"
+
+Once found, set `KB_ROOT` to that path and use `$KB_ROOT` in all subsequent commands.
+
+> **To clone the KB:** `git clone https://github.com/tbaziza/NVL_AX_agent_workspace.git`
+
 ## Knowledge Base
 
-Detailed debug knowledge: `/nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/`
+Detailed debug knowledge: `$KB_ROOT/`
 Read `00_index.md` there for the full file tree.
 
 ### KB Structure
@@ -67,11 +80,11 @@ severity: blocker               # blocker | major | minor
 ```
 
 **How to search bugs:**
-1. By symptom keyword: `grep -rl "<error_text>" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/`
-2. By phase/stage: `grep -l "stage:.*runtime" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md`
-3. By category: `grep -l "category:.*library" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md`
-4. By tag: `grep -l "rpath\|dlopen" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md`
-5. Automated: `/nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/run_phase_detection_nvlax.sh <test_dir>` → scores top-3 matches
+1. By symptom keyword: `grep -rl "<error_text>" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/`
+2. By phase/stage: `grep -l "stage:.*runtime" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md`
+3. By category: `grep -l "category:.*library" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md`
+4. By tag: `grep -l "rpath\|dlopen" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md`
+5. Automated: `$KB_ROOT/05_knowledge_and_debugging/run_phase_detection_nvlax.sh <test_dir>` → scores top-3 matches
 
 ---
 
@@ -260,27 +273,27 @@ There are 57 BUG files (BUG-001 to BUG-057) in the KB. ALWAYS search them before
 
 **Search by symptom text:**
 ```bash
-grep -rl "<error_text>" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/
+grep -rl "<error_text>" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/
 ```
 
 **Search by phase:**
 ```bash
-grep -l "stage:.*runtime" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md
+grep -l "stage:.*runtime" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md
 ```
 
 **Search by category:**
 ```bash
-grep -l "category:.*library" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md
+grep -l "category:.*library" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md
 ```
 
 **Search by tag:**
 ```bash
-grep -l "rpath\|dlopen\|symlink" /nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md
+grep -l "rpath\|dlopen\|symlink" $KB_ROOT/05_knowledge_and_debugging/known_bugs_and_fixes/BUG-*.md
 ```
 
 **Automated scoring:**
 ```bash
-/nfs/site/disks/ive_sle_zsc11_tbaziza/NVL_AX_agent_workspace/05_knowledge_and_debugging/run_phase_detection_nvlax.sh <test_directory>
+$KB_ROOT/05_knowledge_and_debugging/run_phase_detection_nvlax.sh <test_directory>
 ```
 
 Also check `common_patterns.md` for the 21 recurring failure patterns.
