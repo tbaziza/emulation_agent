@@ -16,20 +16,33 @@
 
 > **One-time install — do this once per environment.**
 
+### Step 1: Clone the Knowledge Base
+
 ```bash
-# 1. Clone the Knowledge Base
 git clone https://github.com/tbaziza/NVL_AX_agent_workspace.git
-
-# 2. Create the agents folder (if it doesn't exist)
-mkdir -p ~/.copilot/agents
-
-# 3. Install the agent
-cp NVL_AX_agent_workspace/copilot_cli_agent/sle_emulation_agent.agent.md ~/.copilot/agents/
 ```
 
-✅ Done. The agent is now available in any Copilot CLI session on this machine.
+### Step 2: Run the init script
 
-> 💡 **To update later**, just `git pull` inside `NVL_AX_agent_workspace/` and re-copy the agent file.
+```bash
+bash NVL_AX_agent_workspace/copilot_cli_agent/init_agent.sh
+```
+
+The script will:
+1. **Ask for your working disk path** — enter the path to your large project disk (e.g. `/nfs/site/disks/ive_sle_zsc11_<userid>`). This is NOT the model workarea, just your general working disk.
+2. **Move your Copilot agents** to the working disk (avoids NFS home quota issues) and create a symlink back at `~/.copilot/agents`
+3. **Install the `sle_emulation_agent`** into the agents directory with `KB_ROOT` pre-configured
+
+### Step 3: Done — load the agent
+
+Once the script prints **✅ Setup Complete!**, the agent is ready. Launch Copilot CLI and select it:
+
+```bash
+/p/hdk/cad/copilot/latest/copilot
+/agent sle_emulation_agent
+```
+
+> 💡 **To update later**, `git pull` inside `NVL_AX_agent_workspace/` and re-run `init_agent.sh` with the same working disk path.
 
 ---
 
