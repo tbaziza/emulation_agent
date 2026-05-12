@@ -32,6 +32,7 @@ The script will:
 1. **Ask for your working disk path** — enter the path to your large project disk (e.g. `/nfs/site/disks/ive_sle_zsc11_<userid>`). This is NOT the model workarea, just your general working disk.
 2. **Move your Copilot agents** to the working disk (avoids NFS home quota issues) and create a symlink back at `~/.copilot/agents`
 3. **Install the `sle_emulation_agent`** into the agents directory with `KB_ROOT` pre-configured
+4. **Install skills** — copies skill files from the KB into the agents directory (rtlchanges, analysis opts, etc.)
 
 ### Step 3: Done — load the agent
 
@@ -78,7 +79,7 @@ That's it. You're ready to go.
 |--------|-------------|
 | `compile the model` | Start a fresh grdlbuild |
 | `resume the build` | Continue a build with `-id` |
-| `check if compilation passed` | Run the 7 pass checks |
+| `check if compilation passed` | Run the 6 pass checks |
 
 ### 🔧 Post-Build
 | Prompt | What it does |
@@ -113,6 +114,13 @@ That's it. You're ready to go.
 | Prompt | What it does |
 |--------|-------------|
 | `compile, test, and debug until it passes` | End-to-end loop |
+
+### 🧩 Skills (auto-installed)
+| Skill | What it does |
+|-------|-------------|
+| `sle-build-rtlchanges-create` | Create new rtlchange files (replacement + .ref + HSDs.toml + PKG_IP_CHANGES.cfg) |
+| `sle-build-rtlchanges-refresh` | Fix stale .ref files and HSDs.toml after IP drops |
+| `sle-build-new-target-analysis-opts` | Debug missing global analysis/elab opts for new build targets |
 
 ---
 
@@ -248,7 +256,11 @@ graph LR
 │   ├── 📁 known_bugs_and_fixes/            ← 57 bug files (BUG-001 to BUG-057)
 │   ├── 🔧 run_phase_detection_nvlax.sh     ← Automated bug matcher
 │   └── 📄 symptom_rules.txt                ← Keyword expansion rules
-└── 📁 copilot_cli_agent/                   ← Agent instruction files backup
+├── 📁 06_skills/                           ← Copilot CLI skills (auto-installed)
+│   ├── 📄 sle-build-rtlchanges-create.md   ← Create new rtlchange files
+│   ├── 📄 sle-build-rtlchanges-refresh.md  ← Fix stale .ref / HSDs.toml
+│   └── 📄 sle-build-new-target-analysis-opts.md ← Fix missing analysis/elab opts
+└── 📁 copilot_cli_agent/                   ← Agent + init script
 ```
 
 ---
