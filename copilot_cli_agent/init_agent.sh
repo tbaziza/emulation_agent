@@ -217,14 +217,29 @@ if [ -d "$SKILLS_DIR" ]; then
     if [ ${#SKILL_FILES[@]} -eq 0 ]; then
         warn "No .md files found in $SKILLS_DIR — skipping skill installation."
     else
+        SKILLS_SKIPPED=0
         for src_file in "${SKILL_FILES[@]}"; do
             base="$(basename "$src_file")"
             # Rename foo.md → foo.skill.md
             dest_name="${base%.md}.skill.md"
-            cp "$src_file" "$DEST_AGENTS/$dest_name"
+            dest_path="$DEST_AGENTS/$dest_name"
+            # Skip if already installed and identical
+            if [ -f "$dest_path" ] && cmp -s "$src_file" "$dest_path"; then
+                SKILLS_SKIPPED=$((SKILLS_SKIPPED + 1))
+                continue
+            fi
+            cp "$src_file" "$dest_path"
             SKILLS_INSTALLED=$((SKILLS_INSTALLED + 1))
         done
-        ok "Installed $SKILLS_INSTALLED skill(s) from $SKILLS_DIR → $DEST_AGENTS"
+        if [ $SKILLS_INSTALLED -gt 0 ]; then
+            ok "Installed $SKILLS_INSTALLED skill(s) from $SKILLS_DIR → $DEST_AGENTS"
+        fi
+        if [ $SKILLS_SKIPPED -gt 0 ]; then
+            ok "Skipped $SKILLS_SKIPPED skill(s) — already installed and up to date."
+        fi
+        if [ $SKILLS_INSTALLED -eq 0 ] && [ $SKILLS_SKIPPED -gt 0 ]; then
+            ok "All skills already installed. Nothing to do."
+        fi
     fi
 else
     warn "Skills directory not found: $SKILLS_DIR — skipping skill installation."
