@@ -15,7 +15,7 @@ discovers them automatically.
 |---|-------|----------|---------------|:-:|
 | 1 | [`gk-turnin`](#1-gk-turnin) | Git / submit | turnin, gatekeeper, cth_psetup | — |
 | 2 | [`intel-genai-api-setup`](#2-intel-genai-api-setup) | Auth / setup | OPENAI_API_KEY, genai key | — |
-| 3 | [`intel-wiki-cli`](#3-intel-wiki-cli) | Docs / Confluence | wiki, confluence, wiki page | ✅ `wiki_cli.py` |
+| 3 | [`intel-wiki-cli`](#3-intel-wiki-cli) | Docs / Confluence | wiki, confluence, wiki page | ✅ `wiki_cli.py` + `wiki_to_skill.py` |
 | 4 | [`intel-wiki-pat-setup`](#4-intel-wiki-pat-setup) | Auth / setup | wiki PAT, CONFLUENCE_PAT | — |
 | 5 | [`skill-auto-extractor`](#5-skill-auto-extractor) | Meta / KB growth | save as skill, what did we learn | — |
 | 6 | [`skill-creator`](#6-skill-creator) | Meta / authoring | create skill, new skill | ✅ 3 helpers |
@@ -67,7 +67,10 @@ agent can **search, read, create, update, comment on, and move** wiki pages with
 the user leaving the terminal. Pairs with `intel-wiki-pat-setup` (which provisions
 the PAT this skill consumes).
 
-**Script:** `wiki_cli.py` — Python tool with sub-commands:
+**Scripts:**
+
+`wiki_cli.py` — Python CLI for Confluence operations:
+
 | Sub-command | Action |
 |---|---|
 | `check-setup` | Verify PAT is present & valid (run first!) |
@@ -80,8 +83,23 @@ the PAT this skill consumes).
 | `move` | Re-parent a page |
 | `comments` / `add-comment` | Read or post comments |
 
-**When the agent uses it:** A BUG fix references an Intel BKM/wiki page, or the user
-asks "find me the wiki page for X".
+`wiki_to_skill.py` 🆕 — **Wiki page → Copilot skill** bootstrapper. Composes
+`wiki_cli.py get` + `skill-creator/init_skill.py` to scaffold a new skill from
+any wiki page in one command:
+
+```bash
+./wiki_to_skill.py --id 12345        --skill-name my-new-skill
+./wiki_to_skill.py --title "Page X"  --skill-name foo --triggers "foo, bar"
+./wiki_to_skill.py --id 12345        --skill-name foo --dry-run
+```
+
+Produces `06_skills/<skill-name>/SKILL.md` with YAML frontmatter (name,
+description, triggers, source-URL back-link) and the page body converted
+via a minimal HTML→Markdown transform. Always review before committing.
+
+**When the agent uses it:**
+- A BUG fix references an Intel BKM/wiki page → fetch with `wiki_cli.py`.
+- User says *"turn this wiki page into a skill"* → run `wiki_to_skill.py`.
 
 ---
 

@@ -116,11 +116,31 @@ That's it. You're ready to go.
 | `compile, test, and debug until it passes` | End-to-end loop |
 
 ### 🧩 Skills (auto-installed)
+
+The agent ships **12 skills** in [`06_skills/`](./06_skills/README.md). Highlights:
+
 | Skill | What it does |
 |-------|-------------|
 | `sle-build-rtlchanges-create` | Create new rtlchange files (replacement + .ref + HSDs.toml + PKG_IP_CHANGES.cfg) |
 | `sle-build-rtlchanges-refresh` | Fix stale .ref files and HSDs.toml after IP drops |
 | `sle-build-new-target-analysis-opts` | Debug missing global analysis/elab opts for new build targets |
+| `test-command-fixer` | Lint & auto-fix common `simregress` / `grdlbuild` mistakes (forbidden `-local`, wrong `EMUL_QSLOT`, etc.) |
+| `intel-wiki-cli` | CLI for Intel Wiki / Confluence — `search`, `get`, `create`, `update`, comments. Includes **`wiki_to_skill.py`**: bootstrap a brand-new Copilot skill from any wiki page in one command (combines `wiki_cli.py` with `skill-creator/init_skill.py`). |
+| `intel-wiki-pat-setup` | Generate + install the wiki Personal Access Token (`~/.intel_wiki_pat`) |
+| `intel-genai-api-setup` | Configure `OPENAI_API_KEY` from `~/.openai_api_key` for GenAI-powered tools |
+| `skill-creator` | Scaffold / validate / package new skills |
+| `skill-auto-extractor` | At end of debug session, propose new skills or `BUG-NNN.md` files from lessons learned |
+| `gk-turnin` | Intel Gatekeeper (CTH) submit workflow |
+| `sle-folsom-path-check` | Verify a workarea path is reachable from the Folsom site |
+| `tracker-info-usage` | Find / interpret validation tracker files (PMC boot, GPIO, PCIe, sideband, ...) |
+
+> **Tip — wiki → skill in one shot:**
+> ```bash
+> 06_skills/intel-wiki-cli/wiki_to_skill.py --id <page-id> --skill-name my-bkm-skill
+> ```
+> Produces `06_skills/my-bkm-skill/SKILL.md` (with frontmatter + source link + converted body) ready for review + commit.
+
+See [`06_skills/README.md`](./06_skills/README.md) for the full catalog with per-skill descriptions and scripts.
 
 ---
 

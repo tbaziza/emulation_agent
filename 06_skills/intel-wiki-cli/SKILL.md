@@ -238,3 +238,53 @@ Common errors and solutions:
 ./wiki_cli.py search --help
 ./wiki_cli.py get --help
 ```
+
+## Bonus: Turn a Wiki Page into a Skill (`wiki_to_skill.py`)
+
+This skill ships a second helper, `wiki_to_skill.py`, that **bootstraps a brand-new Copilot skill from any Intel Wiki page** by combining `wiki_cli.py` (fetch) with `skill-creator/init_skill.py` (scaffold).
+
+### What it does
+
+1. Fetches the wiki page (by **`--id`** or **`--title`**) via `wiki_cli.py get`.
+2. Calls `06_skills/skill-creator/scripts/init_skill.py` to scaffold a new skill directory.
+3. Overwrites the placeholder `SKILL.md` with:
+   - YAML frontmatter (`name`, `description`, `triggers`, plus a **Source:** link back to the wiki page)
+   - The page body converted via a minimal HTML→Markdown transform
+4. Prints next-step hints (validate + commit).
+
+### Usage
+
+```bash
+# Default — write into 06_skills/
+./wiki_to_skill.py --id 1234567890 --skill-name my-new-skill
+
+# By page title
+./wiki_to_skill.py --title "ZeBu ZSE5 Bring-up BKM" --skill-name zse5-bringup-bkm
+
+# Custom output path + custom trigger keywords
+./wiki_to_skill.py --title "GPIO Pinlist Page" --skill-name gpio-pinlist-bkm \
+                   --triggers "gpio pinlist, chap03, chap18" \
+                   --path /tmp/draft_skills
+
+# Preview only (no files written)
+./wiki_to_skill.py --id 1234567890 --skill-name foo --dry-run
+```
+
+### Output layout
+
+```
+<path>/<skill-name>/
+├── SKILL.md          ← auto-populated with wiki content + frontmatter
+├── scripts/          ← (from init_skill.py template — usually delete if not needed)
+├── references/       ← (template scaffold)
+└── assets/           ← (template scaffold)
+```
+
+### Caveats
+
+- The HTML→Markdown converter is best-effort: handles headings, lists, bold/italic/code,
+  links, and `<pre>` blocks; complex Confluence macros may need manual cleanup.
+- Always **review** the generated `SKILL.md` before committing — verify the description,
+  triggers, and clean up any leftover HTML artifacts.
+- Run `06_skills/skill-creator/scripts/quick_validate.py <skill-dir>` to lint the frontmatter
+  before commit.
