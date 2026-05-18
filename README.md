@@ -117,13 +117,15 @@ That's it. You're ready to go.
 
 ### 🧩 Skills (auto-installed)
 
-The agent ships **12 skills** in [`06_skills/`](./06_skills/README.md). Highlights:
+The agent ships **14 skills** in [`06_skills/`](./06_skills/README.md). Highlights:
 
 | Skill | What it does |
 |-------|-------------|
 | `sle-build-rtlchanges-create` | Create new rtlchange files (replacement + .ref + HSDs.toml + PKG_IP_CHANGES.cfg) |
 | `sle-build-rtlchanges-refresh` | Fix stale .ref files and HSDs.toml after IP drops |
 | `sle-build-new-target-analysis-opts` | Debug missing global analysis/elab opts for new build targets |
+| `loggr-usage` | Parse SLE logs (`logbook.log.gz`, `emurun.log`, `assertion_failures.log`) — extract errors, plusargs, workarea, timing |
+| `bucketr-usage` | Cluster many failing DOA tests into ~5–10 root-cause buckets using embeddings + LLM |
 | `test-command-fixer` | Lint & auto-fix common `simregress` / `grdlbuild` mistakes (forbidden `-local`, wrong `EMUL_QSLOT`, etc.) |
 | `intel-wiki-cli` | CLI for Intel Wiki / Confluence — `search`, `get`, `create`, `update`, comments. Includes **`wiki_to_skill.py`**: bootstrap a brand-new Copilot skill from any wiki page in one command (combines `wiki_cli.py` with `skill-creator/init_skill.py`). |
 | `intel-wiki-pat-setup` | Generate + install the wiki Personal Access Token (`~/.intel_wiki_pat`) |
@@ -185,6 +187,245 @@ flowchart TD
     linkStyle 7 stroke:#b366e0,stroke-width:2px,stroke-dasharray:5
     linkStyle 8 stroke:#b366e0,stroke-width:2px,stroke-dasharray:5
 ```
+
+---
+
+## 🧠 Pydantic AI Multi-Agent System (MAS)
+
+A separate **fan-out / fan-in** Multi-Agent System lives at [`copilot_cli_agent/pydantic_system/`](copilot_cli_agent/pydantic_system/) and manages, validates, and auto-documents this Knowledge Base itself. It is independent from the SLE Emulation Agent flow above — think of it as the **librarian** for the KB the SLE agent reads from.
+
+| Role | Persona | Goal |
+|------|---------|------|
+| Router / Coordinator | The Conductor | Decide which sub-agents to run; orchestrate |
+| Context & Tagging Agent | The Analyst | Scan MD files, extract summary + env tags |
+| Validation & Quality Agent | The Auditor | Check links, headers, skill format, index sync |
+| Documentation & README Agent | The Writer | Rewrite TOC + Skills sections of READMEs |
+| Cataloger (Writer tool) | Documented surface | Merge Python `@register_skill`s with `06_skills/*/SKILL.md` |
+
+### High-level data flow (fan-out / fan-in)
+
+```mermaid
+flowchart LR
+    U([User CLI / prompt]) --> R[Router<br/>Conductor]
+    R -->|AgentPlan| F{{asyncio.gather}}
+    F --> A[Analyst<br/>tags MD files]
+    F --> V[Auditor<br/>links / headers / skills]
+    A --> M[Merge<br/>intermediates]
+    V --> M
+    M --> G{Auditor<br/>gate}
+    G -- passed --> W[Writer<br/>+ Cataloger]
+    G -- failed & no --ignore-gate --> S[Skip writer]
+    W --> FR[FinalReport<br/>Pydantic model]
+    S --> FR
+    FR --> OUT([stdout / JSON])
+
+    subgraph KB[KB_ROOT — NVL_AX_agent_workspace]
+        I[(00_index.md)]
+        K[(01_…05_ docs)]
+        SK[(06_skills/*/SKILL.md)]
+    end
+
+    A -.reads.-> K
+    V -.reads.-> I
+    V -.reads.-> K
+    V -.reads.-> SK
+    W -.writes between<br/>MAS:* markers.-> I
+```
+
+### Component & provider stack
+
+```mermaid
+flowchart TB
+    subgraph CLI[__main__.py — CLI]
+        ARGS[argparse:<br/>--prompt --dry-run<br/>--smoke --ignore-gate<br/>--json --kb-root]
+    end
+
+    subgraph ORCH[orchestrator.py]
+        RUN[run_mas]
+    end
+
+    subgraph AGENTS[Pydantic AI Agents]
+        AN[analyst_agent.py]
+        AU[auditor_agent.py]
+        WR[writer_agent.py]
+        RO[Router prompt]
+    end
+
+    subgraph CORE[agent_init.py]
+        DEPS[MASDeps<br/>kb_root, model, batch_size]
+        FAC[make_model factory]
+        TEL[setup_telemetry]
+    end
+
+    subgraph SUPPORT[Support modules]
+        MD[md_utils.py<br/>iter / read / parse]
+        SK[skills.py<br/>@register_skill + cataloger]
+        MO[models.py<br/>Pydantic schemas]
+    end
+
+    subgraph PROV[Model providers]
+        TEST[TestModel<br/>offline, deterministic]
+        INTEL[intel:* →<br/>AsyncAzureOpenAI<br/>https://genai-proxy.intel.com/api]
+        ANY[openai:* / anthropic:*<br/>passthrough]
+    end
+
+    subgraph OTEL[Telemetry]
+        SPANS[OTel spans:<br/>mas.run, mas.route,<br/>mas.fanout, mas.writer_gate,<br/>analyst.batch, auditor.run,<br/>writer.write_file]
+        CONS[ConsoleExporter]
+        OTLP[OTLP HTTP exporter<br/>optional]
+    end
+
+    ARGS --> RUN
+    RUN --> RO --> AN
+    RO --> AU
+    AN --> WR
+    AU --> WR
+    AN -. uses .-> DEPS
+    AU -. uses .-> DEPS
+    WR -. uses .-> DEPS & SK & MD
+    DEPS -. built by .-> FAC
+    FAC --> TEST
+    FAC --> INTEL
+    FAC --> ANY
+    AN & AU & WR -. emit .-> SPANS
+    TEL --> SPANS --> CONS
+    SPANS -.if OTEL_EXPORTER_OTLP_ENDPOINT.-> OTLP
+    AN & AU & WR -. typed I/O .-> MO
+```
+
+### Sequence — one full `run_mas()` invocation
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CLI as __main__
+    participant O as Orchestrator
+    participant R as Router
+    participant A as Analyst
+    participant V as Auditor
+    participant W as Writer
+    participant KB as KB_ROOT
+    participant M as Intel GenAI Proxy
+
+    U->>CLI: ./run_mas.sh --prompt "audit and tag"
+    CLI->>O: run_mas(prompt, deps)
+    O->>R: route(prompt)
+    R->>M: LLM: decide AgentPlan
+    M-->>R: {analyst:T, auditor:T, writer:T}
+    par fan-out
+        O->>A: analyst.run(batches)
+        A->>KB: iter_md_files()
+        A->>M: LLM tag batches
+        M-->>A: MDTags[]
+    and
+        O->>V: auditor.run()
+        V->>KB: check_links/headers/skills
+        V->>M: LLM summary
+        M-->>V: AuditReport
+    end
+    O->>O: gate = audit.passed OR --ignore-gate
+    alt gate passed
+        O->>W: writer.write(tags, audit, skills)
+        W->>KB: replace_between_markers(MAS:TOC / MAS:SKILLS)
+        W-->>O: ReadmeUpdate[]
+    else gate failed
+        O-->>O: skip writer
+    end
+    O-->>CLI: FinalReport
+    CLI-->>U: text or JSON
+```
+
+### Quick start
+
+```bash
+# Wrapper (loads ~/.openai_api_key, defaults to intel:gpt-5.4-mini)
+./copilot_cli_agent/pydantic_system/run_mas.sh --prompt "audit and tag the KB"
+
+# Override the model
+MAS_MODEL=intel:gpt-5.4 ./copilot_cli_agent/pydantic_system/run_mas.sh
+
+# Offline smoke (no API key required)
+MAS_MODEL=test python3 -m copilot_cli_agent.pydantic_system --smoke
+```
+
+Full documentation, environment variables, provider details and extensibility (custom `@register_skill`) are in [`copilot_cli_agent/pydantic_system/README.md`](copilot_cli_agent/pydantic_system/README.md).
+
+---
+
+## 🩺 Triage MAS — Pydantic AI debug brain for the SLE Agent
+
+When a compile or DOA test fails, the SLE Emulation Agent invokes a **second**, separate Pydantic AI Multi-Agent System whose only job is **failure triage**. It is read-only, deterministic where possible, and returns a structured JSON `TriageReport` that the SLE agent presents to you.
+
+### Star topology — sub-agents do NOT talk to each other
+
+```mermaid
+flowchart LR
+    SLE["SLE Emulation Agent<br/>(Markdown / Copilot CLI)"]:::shell
+    SH["Shell:<br/>grdlbuild / simregress"]:::shell
+    O["Orchestrator<br/>(only thing that knows everyone)"]:::orch
+    P[PhaseDetector<br/>pure Python]:::det
+    S[SymptomCollector<br/>pure Python]:::det
+    B[BugMatcher<br/>Pydantic AI + Intel GenAI]:::ai
+    F[FixPlanner<br/>Pydantic AI + red-line gate]:::ai
+    SLE --> SH
+    SH -- failure --> SLE
+    SLE -- "python -m triage_mas &lt;test_dir&gt;" --> O
+    O --> P
+    O --> S
+    O --> B
+    O --> F
+    B -. "uses KB" .-> KB[(57+ BUG-*.md files)]
+    F -. "reads matched BUG" .-> KB
+    O -- "TriageReport JSON" --> SLE
+    classDef shell fill:#2a3142,stroke:#5b8def,color:#fff;
+    classDef orch fill:#3a2a4a,stroke:#a47df6,color:#fff;
+    classDef det fill:#234e3a,stroke:#4bbf72,color:#fff;
+    classDef ai fill:#4a2d2d,stroke:#e57878,color:#fff;
+```
+
+### Per-agent skill catalog (each agent owns its own private skills)
+
+| Agent | Skills (`triage_mas/skills/<agent>/`) | LLM-driven? |
+|---|---|---|
+| **PhaseDetector** | `parse_logbook`, `scan_emurun`, `check_assertion_log` | No (deterministic) |
+| **SymptomCollector** | `grep_log`, `expand_keywords`, `extract_context`, `dedupe_symptoms` | No (deterministic) |
+| **BugMatcher** | `list_bug_index`, `filter_by_tag`, `read_bug_file`, `score_match` | Yes — ranks 57+ BUGs |
+| **FixPlanner** | `extract_fix_block`, `classify_risk`, **`check_red_lines`** (HARD GATE), `suggest_command` | Yes — orders fix steps |
+
+`check_red_lines` rejects any plan step containing `EMUL_QSLOT=/prj/sv/nvl/showstopper`, `-local`, `post_zcui`, `git commit`, destructive `rm -rf` on `subip/soc/handoff`, or any of the 11 SLE safety violations — **before the JSON ever reaches stdout.**
+
+### Quick start
+
+```bash
+export OPENAI_API_KEY=$(cat ~/.openai_api_key)   # Intel GenAI proxy token
+python3 -m copilot_cli_agent.triage_mas <failed_test_dir> --pretty
+```
+
+```bash
+# Offline smoke with no API call (placeholder bug match):
+MAS_MODEL=test python3 -m copilot_cli_agent.triage_mas <failed_test_dir>
+```
+
+```bash
+# Skill-isolation lint (CI gate)
+python3 copilot_cli_agent/scripts/lint_skill_isolation.py
+```
+
+Sample real run (32 s, `intel:gpt-5.4-mini`, synthetic RPATH/libreadline failure → top match **BUG-012** with 3 safe FixSteps, full JSON in [docs/ARCHITECTURE.html](docs/ARCHITECTURE.html)).
+
+Full details: [`copilot_cli_agent/triage_mas/README.md`](copilot_cli_agent/triage_mas/README.md).
+
+### 📈 Live telemetry dashboard
+
+Every Triage MAS run can emit OpenTelemetry spans to a local NDJSON file. A bundled Flask app reads that file and renders a waterfall in the browser — no OTLP collector, no external service.
+
+```bash
+export MAS_OTEL_FILE=$HOME/.copilot/triage_traces/spans.ndjson
+python3 -m copilot_cli_agent.triage_mas <failed_test_dir>
+python3 -m copilot_cli_agent.telemetry_ui   # http://127.0.0.1:8765
+```
+
+Full docs: [`docs/telemetry_ui.html`](docs/telemetry_ui.html) (rich, with diagrams) · [`docs/telemetry_ui.md`](docs/telemetry_ui.md) (markdown). Architecture: [`docs/ARCHITECTURE.html#telemetry`](docs/ARCHITECTURE.html#telemetry).
 
 ---
 

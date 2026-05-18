@@ -13,25 +13,47 @@ discovers them automatically.
 
 | # | Skill | Category | Trigger Words | Has Script? |
 |---|-------|----------|---------------|:-:|
-| 1 | [`gk-turnin`](#1-gk-turnin) | Git / submit | turnin, gatekeeper, cth_psetup | — |
-| 2 | [`intel-genai-api-setup`](#2-intel-genai-api-setup) | Auth / setup | OPENAI_API_KEY, genai key | — |
-| 3 | [`intel-wiki-cli`](#3-intel-wiki-cli) | Docs / Confluence | wiki, confluence, wiki page | ✅ `wiki_cli.py` + `wiki_to_skill.py` |
-| 4 | [`intel-wiki-pat-setup`](#4-intel-wiki-pat-setup) | Auth / setup | wiki PAT, CONFLUENCE_PAT | — |
-| 5 | [`skill-auto-extractor`](#5-skill-auto-extractor) | Meta / KB growth | save as skill, what did we learn | — |
-| 6 | [`skill-creator`](#6-skill-creator) | Meta / authoring | create skill, new skill | ✅ 3 helpers |
-| 7 | [`sle-build-new-target-analysis-opts`](#7-sle-build-new-target-analysis-opts) | Build debug | vlogan SVS, analysis opts missing | — |
-| 8 | [`sle-build-rtlchanges-create`](#8-sle-build-rtlchanges-create) | Build / IP patch | create rtlchange, PKG_IP_CHANGES | — |
-| 9 | [`sle-build-rtlchanges-refresh`](#9-sle-build-rtlchanges-refresh) | Build / IP patch | rtlchanges_precheck FAIL | — |
-| 10 | [`sle-folsom-path-check`](#10-sle-folsom-path-check) | Site / NFS | folsom path, cross-site share | ✅ `folsom_path_check.sh` |
-| 11 | [`test-command-fixer`](#11-test-command-fixer) | DOA / safety | simregress error, -trex unpaired | ✅ `fix_test_command.py` |
-| 12 | [`tracker-info-usage`](#12-tracker-info-usage) | Debug / trackers | find tracker, IP tracker file | — |
+| 1 | [`bucketr-usage`](#1-bucketr-usage) 🆕 | Debug / triage | bucket DOA failures, cluster emu failures | uses `bucketr` from `copilot_agent_tools/` |
+| 2 | [`gk-turnin`](#2-gk-turnin) | Git / submit | turnin, gatekeeper, cth_psetup | — |
+| 3 | [`intel-genai-api-setup`](#3-intel-genai-api-setup) | Auth / setup | OPENAI_API_KEY, genai key | — |
+| 4 | [`intel-wiki-cli`](#4-intel-wiki-cli) | Docs / Confluence | wiki, confluence, wiki page | ✅ `wiki_cli.py` + `wiki_to_skill.py` |
+| 5 | [`intel-wiki-pat-setup`](#5-intel-wiki-pat-setup) | Auth / setup | wiki PAT, CONFLUENCE_PAT | — |
+| 6 | [`loggr-usage`](#6-loggr-usage) 🆕 | Debug / log parsing | parse logbook.log, parse emurun.log | ✅ `run_loggr_tracked.sh` |
+| 7 | [`skill-auto-extractor`](#7-skill-auto-extractor) | Meta / KB growth | save as skill, what did we learn | — |
+| 8 | [`skill-creator`](#8-skill-creator) | Meta / authoring | create skill, new skill | ✅ 3 helpers |
+| 9 | [`sle-build-new-target-analysis-opts`](#9-sle-build-new-target-analysis-opts) | Build debug | vlogan SVS, analysis opts missing | — |
+| 10 | [`sle-build-rtlchanges-create`](#10-sle-build-rtlchanges-create) | Build / IP patch | create rtlchange, PKG_IP_CHANGES | — |
+| 11 | [`sle-build-rtlchanges-refresh`](#11-sle-build-rtlchanges-refresh) | Build / IP patch | rtlchanges_precheck FAIL | — |
+| 12 | [`sle-folsom-path-check`](#12-sle-folsom-path-check) | Site / NFS | folsom path, cross-site share | ✅ `folsom_path_check.sh` |
+| 13 | [`test-command-fixer`](#13-test-command-fixer) | DOA / safety | simregress error, -trex unpaired | ✅ `fix_test_command.py` |
+| 14 | [`tracker-info-usage`](#14-tracker-info-usage) | Debug / trackers | find tracker, IP tracker file | — |
 
 > Pure-prose skills don't ship scripts — the SKILL.md *is* the deliverable; it teaches the
 > agent the workflow. Skills with scripts execute concrete actions.
 
 ---
 
-## 1. `gk-turnin`
+## 1. `bucketr-usage` 🆕
+**Category:** Debug / failure clustering (Step 4c)
+
+**What it does:** Wraps the `bucketr` tool (at `$PCD_VAL_AGENTS_TOOLS_DIR/bucketr/`)
+to cluster many failing DOA tests into a handful of root-cause buckets using
+text-embeddings (cosine 80%) + LLM-named clusters. Adapted for SLE: file-mode
+only (no `lsti` regression DB) — point it at a directory of per-test error
+files, or at `known_bugs_and_fixes/BUG-*.md` to dedupe the KB.
+
+**When the agent uses it:** After a multi-test `simregress -l <reglist>` run
+that produced dozens of failures — turn 50 raw failures into ~5 actions.
+
+**Script:** none in this skill — invokes the pre-installed bucketr venv:
+`$PCD_VAL_AGENTS_TOOLS_DIR/bucketr/.venv/bin/python …/bucketr.py`.
+
+**Requires:** `OPENAI_API_KEY` (see `intel-genai-api-setup`) for LLM mode;
+`--no-llm` works offline.
+
+---
+
+## 2. `gk-turnin`
 **Category:** Git workflow (Intel Gatekeeper)
 
 **What it does:** Walks the agent through Intel's Gatekeeper (CTH) turn-in flow for
@@ -44,7 +66,7 @@ hygiene checks, and review approval requirements before pushing to the shared GK
 
 ---
 
-## 2. `intel-genai-api-setup`
+## 3. `intel-genai-api-setup`
 **Category:** Authentication / first-run setup
 
 **What it does:** Configures the `OPENAI_API_KEY` env var (from `~/.openai_api_key`)
@@ -59,7 +81,7 @@ for tcsh and bash, file-perm hardening (`chmod 600`), and troubleshooting.
 
 ---
 
-## 3. `intel-wiki-cli` 🆕
+## 4. `intel-wiki-cli` 🆕
 **Category:** Documentation lookup (Confluence)
 
 **What it does:** Provides CLI access to Intel Wiki (`wiki.ith.intel.com`) so the
@@ -103,7 +125,7 @@ via a minimal HTML→Markdown transform. Always review before committing.
 
 ---
 
-## 4. `intel-wiki-pat-setup`
+## 5. `intel-wiki-pat-setup`
 **Category:** Authentication / first-run setup
 
 **What it does:** Step-by-step guide to generate an Intel Wiki Personal Access Token
@@ -118,7 +140,26 @@ setting up wiki access for the first time.
 
 ---
 
-## 5. `skill-auto-extractor`
+## 6. `loggr-usage` 🆕
+**Category:** Debug / log parsing (Step 4b)
+
+**What it does:** Wrapper around the `loggr` CLI (at
+`$PCD_VAL_AGENTS_TOOLS_DIR/loggr/`) for extracting errors, plusargs, workarea
+hints, timing tables, and HTML reports from SLE logs — `logbook.log.gz`,
+`emurun.log`, `assertion_failures.log`. Skill explicitly calls out which loggr
+flags are UVM-only (and emit empty on emu logs) vs. which work generically on
+ZeBu/NVL_AX runs.
+
+**When the agent uses it:** First-line triage after a failed DOA test —
+`loggr --errors logbook.log.gz` → feed the error string into BUG-KB grep or
+`run_phase_detection_nvlax.sh`.
+
+**Script:** ✅ `run_loggr_tracked.sh` — venv activation + /tmp logging +
+exit-code propagation. Always use the wrapper, never `loggr.py` directly.
+
+---
+
+## 7. `skill-auto-extractor`
 **Category:** Meta / continuous KB growth
 
 **What it does:** Autonomous "lessons learned" capture. After any debug session
@@ -133,7 +174,7 @@ command, or user says "save this as a skill".
 
 ---
 
-## 6. `skill-creator`
+## 8. `skill-creator`
 **Category:** Meta / skill authoring
 
 **What it does:** Templated workflow for creating new skills — picks the right
@@ -150,7 +191,7 @@ delegates the materialization.
 
 ---
 
-## 7. `sle-build-new-target-analysis-opts`
+## 9. `sle-build-new-target-analysis-opts`
 **Category:** Build debug (SLE / ZeBu)
 
 **What it does:** Diagnoses the *"hundreds of `Error-[SVS]` errors when enabling a
@@ -165,7 +206,7 @@ explodes with library-wide SV-construct errors.
 
 ---
 
-## 8. `sle-build-rtlchanges-create`
+## 10. `sle-build-rtlchanges-create`
 **Category:** Build / IP source patching
 
 **What it does:** End-to-end workflow to create a new **rtlchange** (Intel's
@@ -181,7 +222,7 @@ without altering the upstream IP package.
 
 ---
 
-## 9. `sle-build-rtlchanges-refresh`
+## 11. `sle-build-rtlchanges-refresh`
 **Category:** Build / IP source patching
 
 **What it does:** Companion to skill #8 — diagnoses `rtlchanges_precheck` failures
@@ -196,7 +237,7 @@ or the user is porting rtlchanges between workspaces.
 
 ---
 
-## 10. `sle-folsom-path-check`
+## 12. `sle-folsom-path-check`
 **Category:** Site / NFS path validation
 
 **What it does:** Before sharing a workarea path with a Folsom-based teammate (or
@@ -212,7 +253,7 @@ share-the-path request.
 
 ---
 
-## 11. `test-command-fixer`
+## 13. `test-command-fixer`
 **Category:** DOA test safety / command linting
 
 **What it does:** Detects and **auto-fixes** the recurring SLE simregress /
@@ -233,7 +274,7 @@ command (Step 3 of the agent workflow), or when the user pastes a failing one.
 
 ---
 
-## 12. `tracker-info-usage`
+## 14. `tracker-info-usage`
 **Category:** Debug / RTL tracker discovery
 
 **What it does:** Guide for finding the right `tracker_info` tool invocation to
